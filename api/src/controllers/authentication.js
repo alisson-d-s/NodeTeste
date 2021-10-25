@@ -2,12 +2,18 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-const authConfig = require('../config/auth.json');
+const authConfig = require('../../config/auth.json');
 
 const User = require('../model/User.js');
 
 const router = express.Router();
 router.use(express.json());
+
+function generateToken(params = {}){
+    return jwt.sign(params, authConfig.secret, {
+        expiresIn: 86400,
+    });
+}
 
 router.post('/register', async (req, res) => {
     try{
@@ -19,7 +25,10 @@ router.post('/register', async (req, res) => {
 
         user.password = undefined;
 
-        return res.send({ user });
+        return res.send({ 
+            user,
+            token: generateToken({ id: user.id }),
+        });
     }catch(err){
         return res.status(400).send(`Registration failed\n\r ${err}`);
     }
@@ -36,13 +45,12 @@ router.post('/authenticate', async (req, res) => {
     if (!await bcrypt.compare(password, user.password))
         return res.status(400).send({ error: 'Invalid password' });
 
-    const token = jwt.sign({ id: user.id }, authConfig.secret, {
-        expiresIn: 86400,
-    });
-
     user.password = undefined;
 
-    res.send({ user, token });
+    return res.send({ 
+        user,
+        token: generateToken({ id: user.id }),
+    });
 });
 
 module.exports = app => app.use('/auth', router);
